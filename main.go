@@ -137,12 +137,11 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 	}
 
 	if _, err := cert.Verify(opts); err != nil {
-		panic("failed to verify certificate: " + err.Error())
+		//panic("failed to verify certificate: " + err.Error())
 		return false
 	} else {
 		return true
 	}
-
 }
 
 func main() {
@@ -178,17 +177,12 @@ func main() {
 	}
 
 	for _, k := range certs {
-		if len(k) > 0 {
+		if len(k) > 0 && VerifyCertificate(k) {
 			fingerprint := getSha256FingerPrint(convertBytesToCertificate(k))
 			s := fmt.Sprintf("%x", fingerprint)
 			fmt.Println(s)
 		}
 	}
-	//fingerprint := getSha256FingerPrint(convertBytesToCertificate(certs[0]))
-	//s:= fmt.Sprintf("%x", fingerprint)
-	//fmt.Println(s)
-	//block, _ := pem.Decode([]byte(pembytes))
-	//certs, err := x509.ParseCertificates(block.Bytes)
 
 	cert.Close()
 
