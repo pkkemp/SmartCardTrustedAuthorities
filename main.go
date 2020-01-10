@@ -28,13 +28,13 @@ func convertBytesToCertificate(certificate []byte) *x509.Certificate {
 	if err != nil {
 		panic("failed to parse certificate: " + err.Error())
 	}
+
 	return cert
 }
 
 func VerifyCertificate(certificate []byte) bool {
-	// First, create the set of root certificates. For this example we only
-	// have one. It's also possible to omit this in order to use the
-	// default root set of the current operating system.
+	// First, create the set of root certificates.
+	// This includes the four (currently valid) DOD Root CAs
 
 	const rootCA5 = `
 -----BEGIN CERTIFICATE-----
@@ -136,8 +136,7 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 		Roots: roots,
 	}
 
-	if _, err := cert.Verify(opts); err != nil {
-		//panic("failed to verify certificate: " + err.Error())
+	if _, err := cert.Verify(opts); err != nil  {
 		return false
 	} else {
 		return true
@@ -152,7 +151,7 @@ func main() {
 		os.Exit(1)
 	}
 	pemfileinfo, _ := cert.Stat()
-	var size = pemfileinfo.Size()
+	size := pemfileinfo.Size()
 	pembytes := make([]byte, size)
 
 	buffer := bufio.NewReader(cert)
@@ -178,9 +177,13 @@ func main() {
 
 	for _, k := range certs {
 		if len(k) > 0 && VerifyCertificate(k) {
-			fingerprint := getSha256FingerPrint(convertBytesToCertificate(k))
-			s := fmt.Sprintf("%x", fingerprint)
-			fmt.Println(s)
+			cert := convertBytesToCertificate(k)
+			if !strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") && !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") && !strings.HasPrefix(cert.Subject.CommonName, "DOD SW"){
+				fingerprint := getSha256FingerPrint(cert)
+				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + ": "
+				s += fmt.Sprintf("%x", fingerprint)
+				fmt.Println(s)
+			}
 		}
 	}
 
