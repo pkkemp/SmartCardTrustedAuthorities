@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
@@ -10,13 +11,12 @@ import (
 	"strings"
 )
 
-func getSha256FingerPrint(certificate *x509.Certificate) [sha256.Size]byte {
-	//
-	//fingerprint := hasher.Sum(certificate.Raw)
-	//var fingerprint1 = sha1.Sum(certificate.Raw)
-	//fmt.Println(fingerprint1)
-	//return(fingerprint)
+func getSha256Fingerprint(certificate *x509.Certificate) [sha256.Size]byte {
 	return sha256.Sum256(certificate.Raw)
+}
+
+func getSha1Fingerprint(certificate *x509.Certificate) [sha1.Size]byte {
+	return sha1.Sum(certificate.Raw)
 }
 
 func convertBytesToCertificate(certificate []byte) *x509.Certificate {
@@ -179,7 +179,7 @@ func main() {
 		if len(k) > 0 && VerifyCertificate(k) {
 			cert := convertBytesToCertificate(k)
 			if !strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") && !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") && !strings.HasPrefix(cert.Subject.CommonName, "DOD SW"){
-				fingerprint := getSha256FingerPrint(cert)
+				fingerprint := getSha256Fingerprint(cert)
 				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + ": "
 				s += fmt.Sprintf("%x", fingerprint)
 				fmt.Println(s)

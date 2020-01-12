@@ -3,7 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>TrustedAuthorities</key>
-	<array/>
+	<array>
+		<string>123</string>
+		<string>456</string>
+	</array>
 	<key>AttributeMapping</key>
 	<dict>
 		<key>fields</key>
