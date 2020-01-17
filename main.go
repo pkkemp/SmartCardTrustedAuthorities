@@ -7,7 +7,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -18,6 +21,34 @@ func getSha256Fingerprint(certificate *x509.Certificate) [sha256.Size]byte {
 func getSha1Fingerprint(certificate *x509.Certificate) [sha1.Size]byte {
 	return sha1.Sum(certificate.Raw)
 }
+
+func downloadFromUrl(url string) int64 {
+	tokens := strings.Split(url, "/")
+	fileName := tokens[len(tokens)-1]
+	fmt.Println("Downloading", url, "to", fileName)
+
+	// TODO: check file existence first with io.IsExist
+	output, err := os.Create(fileName)
+	if err != nil {
+		panic("Error while creating " + fileName)
+	}
+	defer output.Close()
+
+	response, err := http.Get(url)
+	if err != nil {
+		panic("Error while downloading " + url)
+	}
+	defer response.Body.Close()
+
+	n, err := io.Copy(output, response.Body)
+	if err != nil {
+		panic("Error while downloading " + url)
+	}
+
+	return n
+	//fmt.Println(n, "bytes downloaded.")
+}
+
 
 func convertBytesToCertificate(certificate []byte) *x509.Certificate {
 	block, _ := pem.Decode([]byte(certificate))
@@ -143,7 +174,7 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 	}
 }
 
-func main() {
+func loadCertificates() [][]byte {
 
 	cert, err := os.Open("DoD_CAs.pem")
 	if err != nil {
@@ -174,19 +205,99 @@ func main() {
 		certs = append(certs, certBytes)
 		tempString = ""
 	}
+	cert.Close()
+	return certs
+}
+
+func main() {
+
+
+	//var hashes []string
+	certs := loadCertificates()
+	downloadCRLs()
+
 
 	for _, k := range certs {
 		if len(k) > 0 && VerifyCertificate(k) {
 			cert := convertBytesToCertificate(k)
-			if !strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") && !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") && !strings.HasPrefix(cert.Subject.CommonName, "DOD SW"){
+			if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true{
 				fingerprint := getSha256Fingerprint(cert)
-				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + ": "
+				var crlSize int64 = 0
+				if len(cert.CRLDistributionPoints) > 0 {
+					crlSize = downloadFromUrl(cert.CRLDistributionPoints[0])
+				} else {
+					crlSize = 0
+				}
+				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: "+ cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
 				s += fmt.Sprintf("%x", fingerprint)
+				//hashes = append(hashes, s)
 				fmt.Println(s)
 			}
 		}
 	}
 
-	cert.Close()
+
+}
+
+func downloadCRLs() {
+	certs := loadCertificates()
+
+	for _, k := range certs {
+		if len(k) > 0 && VerifyCertificate(k) {
+			cert := convertBytesToCertificate(k)
+			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
+				var crl string = ""
+				if strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") {
+					crl = "http://crl.disa.mil/crl/DODEMAILCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID SW") {
+					crl = "http://crl.disa.mil/crl/DODIDSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID") {
+					crl = "http://crl.disa.mil/crl/DODIDCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD SW") {
+					crl = "http://crl.disa.mil/crl/DODSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else {
+					continue
+				}
+				fingerprint := getSha256Fingerprint(cert)
+				var crlSize int64 = 0
+				crlSize = downloadFromUrl(crl)
+				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
+				s += fmt.Sprintf("%x", fingerprint)
+				//hashes = append(hashes, s)
+				fmt.Println(s)
+			}
+		}
+	}
+
+}
+
+func CreateSmartCardPlist(hashes []string, filename string) string {
+
+	base := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>TrustedAuthorities</key>
+	<array>`
+
+	for _, k:= range hashes  {
+		base += "/n" + "<string>" + k + "</string>" + "\n"
+
+	}
+	base += `</array>\n`
+	base += `	<key>AttributeMapping</key>
+	<dict>
+		<key>fields</key>
+		<array>
+			<string>NT Principal Name</string>
+		</array>
+		<key>formatString</key>
+		<string>Kerberos:$1</string>
+		<key>dsAttributeString</key>
+		<string>dsAttrTypeStandard:AltSecurityIdentities</string>
+	</dict>
+</dict>
+</plist>`
+return base
 
 }
