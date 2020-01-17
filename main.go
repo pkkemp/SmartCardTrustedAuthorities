@@ -224,7 +224,7 @@ func loadCertificates() [][]byte {
 func main() {
 
 	//var hashes []string
-	certs := loadCertificates()
+	//certs := loadCertificates()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	downloadInfo := downloadCRLs()
