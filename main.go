@@ -178,7 +178,7 @@ func main() {
 	for _, k := range certs {
 		if len(k) > 0 && VerifyCertificate(k) {
 			cert := convertBytesToCertificate(k)
-			if !strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") && !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") && !strings.HasPrefix(cert.Subject.CommonName, "DOD SW"){
+			if !strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") && !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") && !strings.HasPrefix(cert.Subject.CommonName, "DOD SW") || true {
 				fingerprint := getSha256Fingerprint(cert)
 				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + ": "
 				s += fmt.Sprintf("%x", fingerprint)
