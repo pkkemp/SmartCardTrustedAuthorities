@@ -36,7 +36,6 @@ func downloadFromUrl(url string, port int) DownloadInfo {
 	if err != nil {
 		panic("Unable to connect to " + host)
 	}
-	conn.RemoteAddr().String()
 	fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
 	fileName := tokens[len(tokens)-1]
 	fmt.Println("Downloading", url, "to", fileName)
@@ -232,24 +231,24 @@ func main() {
 	//crlHost, _ := net.LookupHost(CRLEndpoint)
 	fmt.Println("Downloaded from", CRLEndpoint, downloadInfo.RemoteAddr)
 
-	for _, k := range certs {
-		if len(k) > 0 && VerifyCertificate(k) {
-			cert := convertBytesToCertificate(k)
-			if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true {
-				fingerprint := getSha256Fingerprint(cert)
-				var downloadInfo DownloadInfo
-				if len(cert.CRLDistributionPoints) > 0 {
-					downloadInfo = downloadFromUrl(cert.CRLDistributionPoints[0], 80)
-				} else {
-					downloadInfo.Size = 0
-				}
-				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(downloadInfo.Size)) + ": "
-				s += fmt.Sprintf("%x", fingerprint)
-				//hashes = append(hashes, s)
-				fmt.Println(s)
-			}
-		}
-	}
+	//for _, k := range certs {
+	//	if len(k) > 0 && VerifyCertificate(k) {
+	//		cert := convertBytesToCertificate(k)
+	//		if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true {
+	//			fingerprint := getSha256Fingerprint(cert)
+	//			var downloadInfo DownloadInfo
+	//			if len(cert.CRLDistributionPoints) > 0 {
+	//				downloadInfo = downloadFromUrl(cert.CRLDistributionPoints[0], 80)
+	//			} else {
+	//				downloadInfo.Size = 0
+	//			}
+	//			s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(downloadInfo.Size)) + ": "
+	//			s += fmt.Sprintf("%x", fingerprint)
+	//			//hashes = append(hashes, s)
+	//			fmt.Println(s)
+	//		}
+	//	}
+	//}
 
 }
 
