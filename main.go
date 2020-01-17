@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -22,8 +23,21 @@ func getSha1Fingerprint(certificate *x509.Certificate) [sha1.Size]byte {
 	return sha1.Sum(certificate.Raw)
 }
 
-func downloadFromUrl(url string) int64 {
+type DownloadInfo struct {
+	Size       int64
+	RemoteAddr string
+}
+
+func downloadFromUrl(url string, port int) DownloadInfo {
 	tokens := strings.Split(url, "/")
+	host := tokens[2]
+	host += ":" + strconv.Itoa(port)
+	conn, err := net.Dial("tcp", host)
+	if err != nil {
+		panic("Unable to connect to " + host)
+	}
+	conn.RemoteAddr().String()
+	fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
 	fileName := tokens[len(tokens)-1]
 	fmt.Println("Downloading", url, "to", fileName)
 
@@ -45,10 +59,9 @@ func downloadFromUrl(url string) int64 {
 		panic("Error while downloading " + url)
 	}
 
-	return n
+	return DownloadInfo{Size: n, RemoteAddr: conn.RemoteAddr().String()}
 	//fmt.Println(n, "bytes downloaded.")
 }
-
 
 func convertBytesToCertificate(certificate []byte) *x509.Certificate {
 	block, _ := pem.Decode([]byte(certificate))
@@ -167,7 +180,7 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 		Roots: roots,
 	}
 
-	if _, err := cert.Verify(opts); err != nil  {
+	if _, err := cert.Verify(opts); err != nil {
 		return false
 	} else {
 		return true
@@ -211,24 +224,26 @@ func loadCertificates() [][]byte {
 
 func main() {
 
-
 	//var hashes []string
 	certs := loadCertificates()
-	downloadCRLs()
-
+	const CRLEndpoint = "crl.disa.mil"
+	const OCSPEndpoint = "ocsp.disa.mil"
+	downloadInfo := downloadCRLs()
+	//crlHost, _ := net.LookupHost(CRLEndpoint)
+	fmt.Println("Downloaded from", CRLEndpoint, downloadInfo.RemoteAddr)
 
 	for _, k := range certs {
 		if len(k) > 0 && VerifyCertificate(k) {
 			cert := convertBytesToCertificate(k)
-			if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true{
+			if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true {
 				fingerprint := getSha256Fingerprint(cert)
-				var crlSize int64 = 0
+				var downloadInfo DownloadInfo
 				if len(cert.CRLDistributionPoints) > 0 {
-					crlSize = downloadFromUrl(cert.CRLDistributionPoints[0])
+					downloadInfo = downloadFromUrl(cert.CRLDistributionPoints[0], 80)
 				} else {
-					crlSize = 0
+					downloadInfo.Size = 0
 				}
-				s:= cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: "+ cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
+				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(downloadInfo.Size)) + ": "
 				s += fmt.Sprintf("%x", fingerprint)
 				//hashes = append(hashes, s)
 				fmt.Println(s)
@@ -236,17 +251,17 @@ func main() {
 		}
 	}
 
-
 }
 
-func downloadCRLs() {
+func downloadCRLs() DownloadInfo {
 	certs := loadCertificates()
 
+	var downloadInfo DownloadInfo
 	for _, k := range certs {
 		if len(k) > 0 && VerifyCertificate(k) {
 			cert := convertBytesToCertificate(k)
 			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
-				var crl string = ""
+				var crl = ""
 				if strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") {
 					crl = "http://crl.disa.mil/crl/DODEMAILCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
 				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID SW") {
@@ -260,7 +275,8 @@ func downloadCRLs() {
 				}
 				fingerprint := getSha256Fingerprint(cert)
 				var crlSize int64 = 0
-				crlSize = downloadFromUrl(crl)
+				downloadInfo = downloadFromUrl(crl, 80)
+				crlSize = downloadInfo.Size
 				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
 				s += fmt.Sprintf("%x", fingerprint)
 				//hashes = append(hashes, s)
@@ -268,7 +284,7 @@ func downloadCRLs() {
 			}
 		}
 	}
-
+	return downloadInfo
 }
 
 func CreateSmartCardPlist(hashes []string, filename string) string {
@@ -280,7 +296,7 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 	<key>TrustedAuthorities</key>
 	<array>`
 
-	for _, k:= range hashes  {
+	for _, k := range hashes {
 		base += "/n" + "<string>" + k + "</string>" + "\n"
 
 	}
@@ -298,6 +314,6 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 	</dict>
 </dict>
 </plist>`
-return base
+	return base
 
 }
