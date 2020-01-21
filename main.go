@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -26,6 +27,12 @@ func getSha1Fingerprint(certificate *x509.Certificate) [sha1.Size]byte {
 type DownloadInfo struct {
 	Size       int64
 	RemoteAddr string
+}
+
+type CertificateBundle struct {
+	CommonNames []string
+	SubjectAlternativeNames [][]string
+	Bytes [][]byte
 }
 
 func downloadFromUrl(url string, port int) DownloadInfo {
@@ -75,7 +82,7 @@ func convertBytesToCertificate(certificate []byte) *x509.Certificate {
 	return cert
 }
 
-func VerifyCertificate(certificate []byte) bool {
+func VerifyCertificate(certificate x509.Certificate) bool {
 	// First, create the set of root certificates.
 	// This includes the four (currently valid) DOD Root CAs
 
@@ -166,7 +173,7 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 		panic("failed to parse root certificate")
 	}
 
-	block, _ := pem.Decode([]byte(certificate))
+	block, _ := pem.Decode([]byte(certificate.Raw))
 	if block == nil {
 		panic("failed to parse certificate PEM")
 	}
@@ -186,7 +193,9 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 	}
 }
 
-func loadCertificates() [][]byte {
+
+
+func loadCertificates() []x509.Certificate {
 
 	cert, err := os.Open("DoD_CAs.pem")
 	if err != nil {
@@ -201,30 +210,48 @@ func loadCertificates() [][]byte {
 	_, err = buffer.Read(pembytes)
 	certString := string(pembytes)
 	concatcerts := strings.SplitAfter(certString, "-----END CERTIFICATE-----")
-	var certs [][]byte
+	var certs []x509.Certificate
 	for _, s := range concatcerts {
 		cert := strings.Split(s, "\n")
 		var tempString string
 		for _, c := range cert {
+			//determines if this certificate is a root certificate
 			if strings.HasPrefix(c, "subject") || strings.HasPrefix(c, "issuer") || c == "" {
-
 			} else {
 				tempString += c
 				tempString += "\n"
 			}
 		}
+
 		certBytes := []byte(tempString)
-		certs = append(certs, certBytes)
+		tempCert, _ := x509.ParseCertificate(certBytes)
+		certs = append(certs, *tempCert)
 		tempString = ""
 	}
 	cert.Close()
 	return certs
 }
 
-func main() {
+func parseCRL(crlFile string) *pkix.CertificateList {
+	cert, err := os.Open(crlFile)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	pemfileinfo, _ := cert.Stat()
+	size := pemfileinfo.Size()
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(cert)
+	_, err = buffer.Read(pembytes)
+	crl, err := x509.ParseDERCRL(pembytes)
+	if(err != nil) {
+		panic(err)
+	}
+	return crl
+}
 
-	//var hashes []string
-	//certs := loadCertificates()
+func main() {
+    parseCRL("DODIDSWCA_47.crl")
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	downloadInfo := downloadCRLs()
@@ -254,11 +281,9 @@ func main() {
 
 func downloadCRLs() DownloadInfo {
 	certs := loadCertificates()
-
 	var downloadInfo DownloadInfo
-	for _, k := range certs {
-		if len(k) > 0 && VerifyCertificate(k) {
-			cert := convertBytesToCertificate(k)
+	for _, cert := range certs {
+		if VerifyCertificate(cert) {
 			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
 				var crl = ""
 				if strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") {
@@ -272,7 +297,7 @@ func downloadCRLs() DownloadInfo {
 				} else {
 					continue
 				}
-				fingerprint := getSha256Fingerprint(cert)
+				fingerprint := getSha256Fingerprint(&cert)
 				var crlSize int64 = 0
 				downloadInfo = downloadFromUrl(crl, 80)
 				crlSize = downloadInfo.Size
