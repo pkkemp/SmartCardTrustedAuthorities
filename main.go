@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -24,15 +25,21 @@ func getSha1Fingerprint(certificate *x509.Certificate) [sha1.Size]byte {
 	return sha1.Sum(certificate.Raw)
 }
 
+func getSha384Fingerprint(certificate *x509.Certificate) [sha512.Size384]byte {
+	return sha512.Sum384(certificate.Raw)
+}
+
 type DownloadInfo struct {
 	Size       int64
 	RemoteAddr string
+	FileName string
 }
 
 type CertificateBundle struct {
 	CommonNames []string
 	SubjectAlternativeNames [][]string
-	Bytes [][]byte
+	Certificates []x509.Certificate
+	CRLFileNames []string
 }
 
 func downloadFromUrl(url string, port int) DownloadInfo {
@@ -65,7 +72,7 @@ func downloadFromUrl(url string, port int) DownloadInfo {
 		panic("Error while downloading " + url)
 	}
 
-	return DownloadInfo{Size: n, RemoteAddr: conn.RemoteAddr().String()}
+	return DownloadInfo{Size: n, RemoteAddr: conn.RemoteAddr().String(), FileName:fileName}
 	//fmt.Println(n, "bytes downloaded.")
 }
 
@@ -173,20 +180,20 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 		panic("failed to parse root certificate")
 	}
 
-	block, _ := pem.Decode([]byte(certificate.Raw))
-	if block == nil {
-		panic("failed to parse certificate PEM")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		panic("failed to parse certificate: " + err.Error())
-	}
+	//block, _ := pem.Decode(certificate.Raw)
+	//if block == nil {
+	//	panic("failed to parse certificate PEM")
+	//}
+	//cert, err := x509.ParseCertificate(block.Bytes)
+	//if err != nil {
+	//	panic("failed to parse certificate: " + err.Error())
+	//}
 
 	opts := x509.VerifyOptions{
 		Roots: roots,
 	}
 
-	if _, err := cert.Verify(opts); err != nil {
+	if _, err := certificate.Verify(opts); err != nil {
 		return false
 	} else {
 		return true
@@ -195,8 +202,7 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 
 
 
-func loadCertificates() []x509.Certificate {
-
+func loadCertificates() CertificateBundle {
 	cert, err := os.Open("DoD_CAs.pem")
 	if err != nil {
 		fmt.Println(err)
@@ -211,6 +217,7 @@ func loadCertificates() []x509.Certificate {
 	certString := string(pembytes)
 	concatcerts := strings.SplitAfter(certString, "-----END CERTIFICATE-----")
 	var certs []x509.Certificate
+	var bundle CertificateBundle
 	for _, s := range concatcerts {
 		cert := strings.Split(s, "\n")
 		var tempString string
@@ -222,14 +229,21 @@ func loadCertificates() []x509.Certificate {
 				tempString += "\n"
 			}
 		}
-
 		certBytes := []byte(tempString)
-		tempCert, _ := x509.ParseCertificate(certBytes)
-		certs = append(certs, *tempCert)
+		if(tempString != "") {
+			tempCert := convertBytesToCertificate(certBytes)
+			if (err != nil) {
+				panic("oh no")
+			}
+			bundle.CommonNames = append(bundle.CommonNames, tempCert.Subject.CommonName)
+			bundle.Certificates = append(bundle.Certificates, *tempCert)
+			certs = append(certs, *tempCert)
+
+		}
 		tempString = ""
 	}
 	cert.Close()
-	return certs
+	return bundle
 }
 
 func parseCRL(crlFile string) *pkix.CertificateList {
@@ -251,37 +265,18 @@ func parseCRL(crlFile string) *pkix.CertificateList {
 }
 
 func main() {
+	loadCertificates()
+	CRLDownloadInfo := downloadCRLs()
     parseCRL("DODIDSWCA_47.crl")
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
-	downloadInfo := downloadCRLs()
-	//crlHost, _ := net.LookupHost(CRLEndpoint)
-	fmt.Println("Downloaded from", CRLEndpoint, downloadInfo.RemoteAddr)
-
-	//for _, k := range certs {
-	//	if len(k) > 0 && VerifyCertificate(k) {
-	//		cert := convertBytesToCertificate(k)
-	//		if strings.HasPrefix(cert.Subject.CommonName, "DoD Root") || true {
-	//			fingerprint := getSha256Fingerprint(cert)
-	//			var downloadInfo DownloadInfo
-	//			if len(cert.CRLDistributionPoints) > 0 {
-	//				downloadInfo = downloadFromUrl(cert.CRLDistributionPoints[0], 80)
-	//			} else {
-	//				downloadInfo.Size = 0
-	//			}
-	//			s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(downloadInfo.Size)) + ": "
-	//			s += fmt.Sprintf("%x", fingerprint)
-	//			//hashes = append(hashes, s)
-	//			fmt.Println(s)
-	//		}
-	//	}
-	//}
-
+	fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
 }
 
-func downloadCRLs() DownloadInfo {
-	certs := loadCertificates()
-	var downloadInfo DownloadInfo
+func downloadCRLs() []DownloadInfo {
+	bundle := loadCertificates()
+	certs := bundle.Certificates
+	var CRLDownloadInfo []DownloadInfo
 	for _, cert := range certs {
 		if VerifyCertificate(cert) {
 			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
@@ -299,16 +294,17 @@ func downloadCRLs() DownloadInfo {
 				}
 				fingerprint := getSha256Fingerprint(&cert)
 				var crlSize int64 = 0
-				downloadInfo = downloadFromUrl(crl, 80)
+				downloadInfo := downloadFromUrl(crl, 80)
 				crlSize = downloadInfo.Size
 				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
 				s += fmt.Sprintf("%x", fingerprint)
 				//hashes = append(hashes, s)
 				fmt.Println(s)
+				CRLDownloadInfo = append(CRLDownloadInfo, downloadInfo)
 			}
 		}
 	}
-	return downloadInfo
+	return CRLDownloadInfo
 }
 
 func CreateSmartCardPlist(hashes []string, filename string) string {
