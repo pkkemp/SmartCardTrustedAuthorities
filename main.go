@@ -200,8 +200,6 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 	}
 }
 
-
-
 func loadCertificates() CertificateBundle {
 	cert, err := os.Open("DoD_CAs.pem")
 	if err != nil {
@@ -267,7 +265,9 @@ func parseCRL(crlFile string) *pkix.CertificateList {
 func main() {
 	loadCertificates()
 	CRLDownloadInfo := downloadCRLs()
-    parseCRL("DODIDSWCA_47.crl")
+	for _, CRL := range CRLDownloadInfo {
+		fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
+	}
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
