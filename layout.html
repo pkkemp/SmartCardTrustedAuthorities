@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.PageTitle}}</title>
+</head>
+<body>
+<h1>{{.PageTitle}}</h1>
+<ul>
+    <p>{{.CRLPageData}}</p>
+    {{range .CRLPageData.CRLS}}
+            <li>{{.TBSCertList}}</li>
+            <li>{{.Title}}</li>
+    {{end}}
+</ul>
+</body>
+</html>

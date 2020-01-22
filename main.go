@@ -5,14 +5,19 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"html/template"
 	"io"
+	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -244,6 +249,31 @@ func loadCertificates() CertificateBundle {
 	return bundle
 }
 
+func readCurrentDir() []string {
+	var CRLFiles []string
+	file, err := os.Open(".")
+	if err != nil {
+		log.Fatalf("failed opening directory: %s", err)
+	}
+	defer file.Close()
+
+	list,_ := file.Readdirnames(0) // 0 to read all files and folders
+	for _, name := range list {
+		if filepath.Ext(name) == ".crl" {
+			CRLFiles = append(CRLFiles, name)
+		}
+	}
+	return CRLFiles
+}
+
+func loadCRLs(CRLList []string) []*pkix.CertificateList {
+	var parsedCRLs []*pkix.CertificateList
+	for _, crl := range CRLList {
+		parsedCRLs = append(parsedCRLs, parseCRL(crl))
+	}
+	return parsedCRLs
+}
+
 func parseCRL(crlFile string) *pkix.CertificateList {
 	cert, err := os.Open(crlFile)
 	if err != nil {
@@ -256,21 +286,81 @@ func parseCRL(crlFile string) *pkix.CertificateList {
 	buffer := bufio.NewReader(cert)
 	_, err = buffer.Read(pembytes)
 	crl, err := x509.ParseDERCRL(pembytes)
-	if(err != nil) {
+	if (err != nil) {
 		panic(err)
 	}
 	return crl
 }
 
+type CRLInfo struct {
+	CAName string
+	NumRevocations int
+	CRL *pkix.CertificateList
+}
+
+type CRLPageData struct {
+	PageTitle string
+	CRLS     []*pkix.CertificateList
+}
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+	// Write "Hello, world!" to the response body
+	tmpl := template.Must(template.ParseFiles("layout.html"))
+	CRL := loadCRLs(readCurrentDir())
+	//clock := time.Now()
+	//text := "Hello world!\n"
+	//text += clock.String() + "\n"
+	//io.WriteString(w, text)
+	data := CRLPageData{
+		PageTitle: "CRL Info",
+		CRLS: CRL}
+	tmpl.Execute(w, data)
+}
+
 func main() {
-	loadCertificates()
-	CRLDownloadInfo := downloadCRLs()
-	for _, CRL := range CRLDownloadInfo {
-		fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
-	}
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
-	fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
+	//loadCertificates()
+	//CRLDownloadInfo := downloadCRLs()
+	//for _, CRL := range CRLDownloadInfo {
+	//	fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
+	//}
+	// Set up a /hello resource handler
+
+	http.HandleFunc("/hello", helloHandler)
+
+	 UsingCloudflare := false
+	// Listen to HTTPS connections with the server certificate and wait
+	if UsingCloudflare {
+		// Create a CA certificate pool and add cert.pem to it
+		caCert, err := ioutil.ReadFile("cert.pem")
+		cloudflare, err := ioutil.ReadFile("cloudflare.pem")
+		if err != nil {
+			log.Fatal(err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		caCertPool.AppendCertsFromPEM(cloudflare)
+
+		// Create the TLS Config with the CA pool and enable Client certificate validation
+		tlsConfig := &tls.Config{
+			ClientCAs: caCertPool,
+			ClientAuth: tls.RequireAndVerifyClientCert,
+		}
+		tlsConfig.BuildNameToCertificate()
+
+		// Create a Server instance to listen on port 8443 with the TLS config
+		server := &http.Server{
+			Addr:      ":8443",
+			TLSConfig: tlsConfig,
+		}
+		log.Fatal(server.ListenAndServeTLS("cert.pem", "key.pem"))
+	} else {
+		http.ListenAndServe(":8080", nil)
+	}
+
+
+	//fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
 }
 
 func downloadCRLs() []DownloadInfo {
