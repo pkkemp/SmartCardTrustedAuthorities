@@ -329,7 +329,7 @@ func main() {
 
 	http.HandleFunc("/hello", helloHandler)
 
-	 UsingCloudflare := false
+	 UsingCloudflare := true
 	// Listen to HTTPS connections with the server certificate and wait
 	if UsingCloudflare {
 		// Create a CA certificate pool and add cert.pem to it
