@@ -335,41 +335,36 @@ func main() {
 	//	fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
 	//}
 	// Set up a /hello resource handler
+	// Set up a /hello resource handler
+	http.HandleFunc("/hello", helloHandler)
+
+	// Create a CA certificate pool and add cert.pem to it
+	caCert, err := ioutil.ReadFile("cert.pem")
+	cloudflare, err := ioutil.ReadFile("cloudflare.pem")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(cloudflare)
+	caCertPool.AppendCertsFromPEM(caCert)
 
 
+	// Create the TLS Config with the CA pool and enable Client certificate validation
+	tlsConfig := &tls.Config{
+		ClientCAs: caCertPool,
+		ClientAuth: tls.RequireAndVerifyClientCert,
+	}
+	tlsConfig.BuildNameToCertificate()
 
-	UsingCloudflare := true
-		// Create a CA certificate pool and add cert.pem to it
-		caCert, err := ioutil.ReadFile("cert.pem")
-		cloudflare, err := ioutil.ReadFile("cloudflare.pem")
-		if err != nil {
-			log.Fatal(err)
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		caCertPool.AppendCertsFromPEM(cloudflare)
+	// Create a Server instance to listen on port 8443 with the TLS config
+	server := &http.Server{
+		Addr:      ":8443",
+		TLSConfig: tlsConfig,
+	}
 
-		// Create the TLS Config with the CA pool and enable Client certificate validation
-		tlsConfig := &tls.Config{
-			ClientCAs: caCertPool,
-			ClientAuth: tls.RequireAndVerifyClientCert,
-		}
-		tlsConfig.BuildNameToCertificate()
-
-		// Create a Server instance to listen on port 8443 with the TLS config
-		server := &http.Server{
-			Addr:      ":8443",
-			TLSConfig: tlsConfig,
-		}
-		http.HandleFunc("/hello", helloHandler)
-		http.HandleFunc("/crl", crlHandler)
-		if UsingCloudflare {
-			server.ListenAndServeTLS("cert.pem", "key.pem")
-		} else {
-			http.ListenAndServe(":8080", nil)
-		}
-
-
+	// Listen to HTTPS connections with the server certificate and wait
+	log.Fatal(server.ListenAndServeTLS("cert.pem", "key.pem"))
 	//fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
 }
 
