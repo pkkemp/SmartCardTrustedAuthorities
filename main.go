@@ -327,7 +327,7 @@ func crlHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	downloadCRLs()
+	//downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	//loadCertificates()
