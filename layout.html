@@ -6,12 +6,15 @@
 </head>
 <body>
 <h1>{{.PageTitle}}</h1>
+{{range .CRLS}}f
+    {{range index .TBSCertList.Issuer 4}}
+        <h1>{{.Value}}</h1>
+    {{end}}
 <ul>
-    <p>{{.CRLPageData}}</p>
-    {{range .CRLPageData.CRLS}}
-            <li>{{.TBSCertList}}</li>
-            <li>{{.Title}}</li>
+    {{range .TBSCertList.RevokedCertificates}}
+        <li>{{.SerialNumber}}</li>
     {{end}}
 </ul>
+{{end}}
 </body>
 </html>

@@ -305,6 +305,13 @@ type CRLPageData struct {
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
+	clock := time.Now()
+	text := "Hello world!\n"
+	text += clock.String() + "\n"
+	io.WriteString(w, text)
+}
+
+func crlHandler(w http.ResponseWriter, r *http.Request) {
 	// Write "Hello, world!" to the response body
 	tmpl := template.Must(template.ParseFiles("layout.html"))
 	CRL := loadCRLs(readCurrentDir())
@@ -316,14 +323,6 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 		PageTitle: "CRL Info",
 		CRLS: CRL}
 	tmpl.Execute(w, data)
-}
-
-func crlHandler(w http.ResponseWriter, r *http.Request) {
-	// Write "Hello, world!" to the response body
-	clock := time.Now()
-	text := "Hello world!\n"
-	text += clock.String() + "\n"
-	io.WriteString(w, text)
 }
 
 func main() {
