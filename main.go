@@ -364,7 +364,7 @@ func main() {
 			Addr:      ":8443",
 			TLSConfig: tlsConfig,
 		}
-		log.Fatal(server.ListenAndServeTLS("cert.pem", "key.pem"))
+		server.ListenAndServeTLS("cert.pem", "key.pem")
 	} else {
 		http.ListenAndServe(":8080", nil)
 	}
