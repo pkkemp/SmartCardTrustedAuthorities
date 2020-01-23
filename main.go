@@ -304,6 +304,29 @@ type CRLPageData struct {
 	CRLS     []*pkix.CertificateList
 }
 
+type CRLRevocations struct {
+	Issuer string
+	NumberOfRevocations int
+}
+
+type CRLStatsPageData struct {
+	PageTitle string
+	Revocations []CRLRevocations
+}
+
+func crlStatsHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("crllist.html"))
+	CRLS := loadCRLs(readCurrentDir())
+	var stats CRLStatsPageData
+	for _, CRL := range CRLS {
+		var ca CRLRevocations
+		ca.Issuer = CRL.TBSCertList.Issuer.String()
+		ca.NumberOfRevocations = len(CRL.TBSCertList.RevokedCertificates)
+		stats.Revocations = append(stats.Revocations, ca)
+	}
+	tmpl.Execute(w, stats)
+}
+
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	clock := time.Now()
 	text := "Hello world!\n"
@@ -337,7 +360,8 @@ func main() {
 	// Set up a /hello resource handler
 	// Set up a /hello resource handler
 	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/crl", crlHandler)
+	//http.HandleFunc("/crl", crlHandler)
+	http.HandleFunc("/crlstats", crlStatsHandler)
 
 	// Create a CA certificate pool and add cert.pem to it
 	caCert, err := ioutil.ReadFile("cert.pem")
