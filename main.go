@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func getSha256Fingerprint(certificate *x509.Certificate) [sha256.Size]byte {
@@ -317,7 +318,16 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+func crlHandler(w http.ResponseWriter, r *http.Request) {
+	// Write "Hello, world!" to the response body
+	clock := time.Now()
+	text := "Hello world!\n"
+	text += clock.String() + "\n"
+	io.WriteString(w, text)
+}
+
 func main() {
+	downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	//loadCertificates()
@@ -328,6 +338,7 @@ func main() {
 	// Set up a /hello resource handler
 
 	http.HandleFunc("/hello", helloHandler)
+	http.HandleFunc("/crl", crlHandler)
 
 	 UsingCloudflare := true
 	// Listen to HTTPS connections with the server certificate and wait
