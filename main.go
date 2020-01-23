@@ -336,12 +336,9 @@ func main() {
 	//}
 	// Set up a /hello resource handler
 
-	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/crl", crlHandler)
 
-	 UsingCloudflare := true
-	// Listen to HTTPS connections with the server certificate and wait
-	if UsingCloudflare {
+
+	UsingCloudflare := true
 		// Create a CA certificate pool and add cert.pem to it
 		caCert, err := ioutil.ReadFile("cert.pem")
 		cloudflare, err := ioutil.ReadFile("cloudflare.pem")
@@ -364,10 +361,13 @@ func main() {
 			Addr:      ":8443",
 			TLSConfig: tlsConfig,
 		}
-		server.ListenAndServeTLS("cert.pem", "key.pem")
-	} else {
-		http.ListenAndServe(":8080", nil)
-	}
+		http.HandleFunc("/hello", helloHandler)
+		http.HandleFunc("/crl", crlHandler)
+		if UsingCloudflare {
+			server.ListenAndServeTLS("cert.pem", "key.pem")
+		} else {
+			http.ListenAndServe(":8080", nil)
+		}
 
 
 	//fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
