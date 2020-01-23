@@ -281,6 +281,7 @@ func parseCRL(crlFile string) *pkix.CertificateList {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	defer cert.Close()
 	pemfileinfo, _ := cert.Stat()
 	size := pemfileinfo.Size()
 	pembytes := make([]byte, size)
