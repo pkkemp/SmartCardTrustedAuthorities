@@ -337,6 +337,7 @@ func main() {
 	// Set up a /hello resource handler
 	// Set up a /hello resource handler
 	http.HandleFunc("/hello", helloHandler)
+	http.HandleFunc("/crl", crlHandler)
 
 	// Create a CA certificate pool and add cert.pem to it
 	caCert, err := ioutil.ReadFile("cert.pem")
