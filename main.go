@@ -5,14 +5,14 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"github.com/willf/bloom"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -338,21 +338,35 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 func crlHandler(w http.ResponseWriter, r *http.Request) {
 	// Write "Hello, world!" to the response body
 	tmpl := template.Must(template.ParseFiles("layout.html"))
+	start := time.Now()
 	CRL := loadCRLs(readCurrentDir())
-	//clock := time.Now()
-	//text := "Hello world!\n"
-	//text += clock.String() + "\n"
-	//io.WriteString(w, text)
 	data := CRLPageData{
 		PageTitle: "CRL Info",
 		CRLS: CRL}
+	elapsed := time.Since(start)
+	log.Printf("crlHandler took %s", elapsed)
 	tmpl.Execute(w, data)
 }
+
 
 func main() {
 	//downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
+	//data := downloadCRLs()
+	//fmt.Print("Downloaded from: ", data)
+	filter := createBloom(1000000)
+	CRL := parseCRL("DODEMAILCA_41.crl")
+	for i:=0; i<len(CRL.TBSCertList.RevokedCertificates) ;i++  {
+		addItemToBloom(CRL.TBSCertList.RevokedCertificates[i].SerialNumber.Uint64(), filter)
+	}
+	fmt.Println(findItemBloom(1572835, filter))
+	fmt.Println(findItemBloom(3145685, filter))
+	fmt.Println(findItemBloom(3145686, filter))
+	fmt.Println(findItemBloom(3145525, filter))
+	fmt.Println(findItemBloom(3145526, filter))
+	fmt.Println(findItemBloom(1572626, filter))
+
 	//loadCertificates()
 	//CRLDownloadInfo := downloadCRLs()
 	//for _, CRL := range CRLDownloadInfo {
@@ -360,38 +374,57 @@ func main() {
 	//}
 	// Set up a /hello resource handler
 	// Set up a /hello resource handler
-	http.HandleFunc("/hello", helloHandler)
+	//http.HandleFunc("/hello", helloHandler)
+	////http.HandleFunc("/crl", crlHandler)
+	//http.HandleFunc("/crlstats", crlStatsHandler)
 	//http.HandleFunc("/crl", crlHandler)
-	http.HandleFunc("/crlstats", crlStatsHandler)
+	//
+	//// Create a CA certificate pool and add cert.pem to it
+	////caCert, err := ioutil.ReadFile("cert.pem")
+	//cloudflare, err := ioutil.ReadFile("origin-pull-ca.pem")
 
-	// Create a CA certificate pool and add cert.pem to it
-	caCert, err := ioutil.ReadFile("cert.pem")
-	cloudflare, err := ioutil.ReadFile("cloudflare.pem")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//caCertPool := x509.NewCertPool()
+	//caCertPool.AppendCertsFromPEM(cloudflare)
+	////caCertPool.AppendCertsFromPEM(caCert)
+	//
+	//
+	//// Create the TLS Config with the CA pool and enable Client certificate validation
+	//tlsConfig := &tls.Config{
+	//	//ClientCAs: caCertPool,
+	//	//ClientAuth: tls.RequireAndVerifyClientCert,
+	//}
+	////tlsConfig.BuildNameToCertificate()
+	//
+	//// Create a Server instance to listen on port 8443 with the TLS config
+	//server := &http.Server{
+	//	Addr:      ":8080",
+	//	TLSConfig: tlsConfig,
+	//}
+	//
+	//// Listen to HTTPS connections with the server certificate and wait
+	////log.Fatal(server.ListenAndServeTLS("cert.pem", "key.pem"))
+	//log.Fatal(server.ListenAndServe())
+	////fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
+}
 
-	if err != nil {
-		log.Fatal(err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(cloudflare)
-	caCertPool.AppendCertsFromPEM(caCert)
+func createBloom(n uint) *bloom.BloomFilter {
+	filter := bloom.New(20*n, 5) // load of 20, 5 keys
+	return filter
+}
 
+func addItemToBloom(serial uint64, filter *bloom.BloomFilter) {
+	n1 := make([]byte,8)
+	binary.BigEndian.PutUint64(n1,serial)
+	filter.Add(n1)
+}
 
-	// Create the TLS Config with the CA pool and enable Client certificate validation
-	tlsConfig := &tls.Config{
-		ClientCAs: caCertPool,
-		ClientAuth: tls.RequireAndVerifyClientCert,
-	}
-	tlsConfig.BuildNameToCertificate()
-
-	// Create a Server instance to listen on port 8443 with the TLS config
-	server := &http.Server{
-		Addr:      ":8443",
-		TLSConfig: tlsConfig,
-	}
-
-	// Listen to HTTPS connections with the server certificate and wait
-	log.Fatal(server.ListenAndServeTLS("cert.pem", "key.pem"))
-	//fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
+func findItemBloom(serial uint64, filter *bloom.BloomFilter) bool {
+	n1 := make([]byte,8)
+	binary.BigEndian.PutUint64(n1,serial)
+	return filter.Test(n1)
 }
 
 func downloadCRLs() []DownloadInfo {
