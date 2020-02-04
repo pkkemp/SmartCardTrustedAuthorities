@@ -35,6 +35,8 @@ func getSha384Fingerprint(certificate *x509.Certificate) [sha512.Size384]byte {
 	return sha512.Sum384(certificate.Raw)
 }
 
+
+
 type DownloadInfo struct {
 	Size       int64
 	RemoteAddr string
@@ -46,6 +48,7 @@ type CertificateBundle struct {
 	SubjectAlternativeNames [][]string
 	Certificates []x509.Certificate
 	CRLFileNames []string
+	Hash256 []string
 }
 
 func downloadFromUrl(url string, port int) DownloadInfo {
@@ -239,16 +242,21 @@ func loadCertificates() CertificateBundle {
 			if (err != nil) {
 				panic("oh no")
 			}
+			//getting Sha256 fingerprint of the certificate
+			fingerprint := getSha256Fingerprint(tempCert)
+			//converting the fingerprint to a hex string
+			stringFingerprint := fmt.Sprintf("%x", fingerprint)
+			bundle.Hash256 = append(bundle.Hash256, stringFingerprint)
 			bundle.CommonNames = append(bundle.CommonNames, tempCert.Subject.CommonName)
 			bundle.Certificates = append(bundle.Certificates, *tempCert)
 			certs = append(certs, *tempCert)
-
 		}
 		tempString = ""
 	}
 	cert.Close()
 	return bundle
 }
+
 
 func readCurrentDir() []string {
 	var CRLFiles []string
@@ -348,6 +356,11 @@ func crlHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+type CRLBloomFilter struct {
+	CA string
+	Filter bloom.BloomFilter
+}
+
 
 func main() {
 	//downloadCRLs()
@@ -355,17 +368,36 @@ func main() {
 	const OCSPEndpoint = "ocsp.disa.mil"
 	//data := downloadCRLs()
 	//fmt.Print("Downloaded from: ", data)
-	filter := createBloom(1000000)
-	CRL := parseCRL("DODEMAILCA_41.crl")
-	for i:=0; i<len(CRL.TBSCertList.RevokedCertificates) ;i++  {
-		addItemToBloom(CRL.TBSCertList.RevokedCertificates[i].SerialNumber.Uint64(), filter)
-	}
-	fmt.Println(findItemBloom(1572835, filter))
-	fmt.Println(findItemBloom(3145685, filter))
-	fmt.Println(findItemBloom(3145686, filter))
-	fmt.Println(findItemBloom(3145525, filter))
-	fmt.Println(findItemBloom(3145526, filter))
-	fmt.Println(findItemBloom(1572626, filter))
+	//filter := createBloom(1000000)
+	//CRL := parseCRL("DODEMAILCA_41.crl")
+	//CRLS := loadCRLs(readCurrentDir())
+	//const numFCRLS = 100
+	//var filters []CRLBloomFilter
+
+	//for i:=0; i < len(CRLS); i++ {
+	//	filters = append(filters,CRLBloomFilter{})
+	//	currentFilter := &filters[i].Filter
+	//	currentFilter = createBloom(1000000)
+	//	filters[i].CA = CRLS[i].TBSCertList.Issuer.String()
+	//	for j:= 0; j < len(CRL.TBSCertList.RevokedCertificates); j++  {
+	//		addItemToBloom(CRLS[i].TBSCertList.RevokedCertificates[j].SerialNumber.Uint64(), currentFilter)
+	//	}
+	//}
+
+	//for k := 0; k < len(CRL.TBSCertList.RevokedCertificates); k++ {
+	//	addItemToBloom(CRL.TBSCertList.RevokedCertificates[k].SerialNumber.Uint64(), filter)
+	//}
+	certs := loadCertificates()
+	plist := CreateSmartCardPlist(certs.Hash256, "Smartcard.plist")
+	fmt.Println(plist)
+
+	//
+	//fmt.Println(findItemBloom(1572835, filter))
+	//fmt.Println(findItemBloom(3145685, filter))
+	//fmt.Println(findItemBloom(3145686, filter))
+	//fmt.Println(findItemBloom(3145525, filter))
+	//fmt.Println(findItemBloom(3145526, filter))
+	//fmt.Println(findItemBloom(1572626, filter))
 
 	//loadCertificates()
 	//CRLDownloadInfo := downloadCRLs()
@@ -471,7 +503,7 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 	<array>`
 
 	for _, k := range hashes {
-		base += "/n" + "<string>" + k + "</string>" + "\n"
+		base += "\n" + "<string>" + k + "</string>" + "\n"
 
 	}
 	base += `</array>\n`
@@ -488,6 +520,6 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 	</dict>
 </dict>
 </plist>`
-	return base
 
+	return base
 }
