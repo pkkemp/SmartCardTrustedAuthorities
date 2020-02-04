@@ -3,10 +3,29 @@
 <plist version="1.0">
 <dict>
 	<key>TrustedAuthorities</key>
-	<array>
-		<string>123</string>
-		<string>456</string>
-	</array>
+        <array>
+           <string>7a3e25a1f120decd208fcacb3c5bbe3261344ce82358c94f68a135e5739b35ae</string>
+           <string>62f03dba240625294340231eb45e1db91b0994f70f14fd81c1a9882ab4e38e50</string>
+           <string>83da8c219e6288468699136e1c1caf7d9821e5a99b726cd2f19b133d55164947</string>
+           <string>c3fed79a9ba7abbe2e58bd56af7ec95ef10d8a6dd05285d338316b918951ebab</string>
+           <string>8304ab7bbe3a3cce529e7d182a9146fc5a59fe2ee1d9c6ac180be2f5a0df9f42</string>
+           <string>20cbf9b63da92527ff670ddb224396283a39eacbab64d403f1ebcb0253e41378</string>
+           <string>378c3f90e2f6d8b5c0d39f439716f4780b2c95ee5409f6044fe21c011947ce20</string>
+           <string>081ba940884b4fb343458a09f04b2ec0a36cda339eca95c55bed5a96034a6852</string>
+           <string>59fc8d390e6f92ae9ea86179ca5b9a4ae04f9b2b346f10ccc87f23aadef15207</string>
+           <string>533cb776fa12945bfa276e548b0510fc9dfbfda1b0bbdd7dbe6e91dc7a21393f</string>
+           <string>43b8d8970212304b4b47d6745ca5c281a49013d2f8e8d8489b962f7d7073556e</string>
+           <string>30ae2db2585a2e8225dc969a7062b64eb948e3adfc069792aca1c493180992a5</string>
+           <string>29e91a64ea8b5a3bd573bc245f4d8c8adcea16b7b406088567d81a848c077f92</string>
+           <string>11c7c17d9c3a71b62d08fc129002985848d2e18d95e27d11b3c70c5bae98ba88</string>
+           <string>c6418beca2c7938fa3203d60e4d246d032959e913223160535e282f54d6839b5</string>
+           <string>9d125ea16dca38447b2456d3e02531418067399771237c528b2c59b44767884c</string>
+           <string>927efe15463347c151afe319d2957746ee28dc5e1ee616c573b266d2ec554f33</string>
+           <string>5af1d6b4dfadbd382876094ca96dcf819c420c7f31166cf7bc88eb77eeba2169</string>
+           <string>eea9598213ac28e4eb2b3463b2de6092472c66562222215df5570a69b15cde8c</string>
+           <string>69ed8638c5ebc39aa3cef9be6ac6428a051cfe539a392a8a1761812d179e1b5a</string>
+           <string>b1670a585295da03bc84aaf0b0f96df2f0e425c26d056a396e5efbb44b5ff8b7</string>
+        </array>
 	<key>AttributeMapping</key>
 	<dict>
 		<key>fields</key>

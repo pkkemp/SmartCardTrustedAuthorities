@@ -346,11 +346,11 @@ func main() {
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	certFilter := DODCertTypesFilter{
-		DOD_EMAIL: true,
+		DOD_EMAIL: false,
 		DOD_ID:    true,
 		DOD_ID_SW: true,
-		DOD_SW:    true,
-		DOD_ROOT:  true,
+		DOD_SW:    false,
+		DOD_ROOT:  false,
 	}
 	certs := loadCertificates(certFilter)
 	plist := CreateSmartCardPlist(certs.Hash256, "Smartcard.plist")
@@ -359,46 +359,7 @@ func main() {
 }
 
 
-func downloadCRLs() []DownloadInfo {
-	certFilter := DODCertTypesFilter{
-		DOD_EMAIL: true,
-		DOD_ID:    true,
-		DOD_ID_SW: true,
-		DOD_SW:    true,
-		DOD_ROOT:  true,
-	}
-	bundle := loadCertificates(certFilter)
-	certs := bundle.Certificates
-	var CRLDownloadInfo []DownloadInfo
-	for _, cert := range certs {
-		if VerifyCertificate(cert) {
-			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
-				var crl = ""
-				if strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") {
-					crl = "http://crl.disa.mil/crl/DODEMAILCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
-				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID SW") {
-					crl = "http://crl.disa.mil/crl/DODIDSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
-				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID") {
-					crl = "http://crl.disa.mil/crl/DODIDCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
-				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD SW") {
-					crl = "http://crl.disa.mil/crl/DODSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
-				} else {
-					continue
-				}
-				fingerprint := getSha256Fingerprint(&cert)
-				var crlSize int64 = 0
-				downloadInfo := downloadFromUrl(crl, 80)
-				crlSize = downloadInfo.Size
-				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
-				s += fmt.Sprintf("%x", fingerprint)
-				//hashes = append(hashes, s)
-				fmt.Println(s)
-				CRLDownloadInfo = append(CRLDownloadInfo, downloadInfo)
-			}
-		}
-	}
-	return CRLDownloadInfo
-}
+
 
 func CreateSmartCardPlist(hashes []string, filename string) string {
 
@@ -451,4 +412,45 @@ func WriteStringToDisk(data string, filename string) bool {
 		return false
 	}
 	return true
+}
+
+func downloadCRLs() []DownloadInfo {
+	certFilter := DODCertTypesFilter{
+		DOD_EMAIL: true,
+		DOD_ID:    true,
+		DOD_ID_SW: true,
+		DOD_SW:    true,
+		DOD_ROOT:  true,
+	}
+	bundle := loadCertificates(certFilter)
+	certs := bundle.Certificates
+	var CRLDownloadInfo []DownloadInfo
+	for _, cert := range certs {
+		if VerifyCertificate(cert) {
+			if !strings.HasPrefix(cert.Subject.CommonName, "DoD Root") {
+				var crl = ""
+				if strings.HasPrefix(cert.Subject.CommonName, "DOD EMAIL") {
+					crl = "http://crl.disa.mil/crl/DODEMAILCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID SW") {
+					crl = "http://crl.disa.mil/crl/DODIDSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD ID") {
+					crl = "http://crl.disa.mil/crl/DODIDCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else if strings.HasPrefix(cert.Subject.CommonName, "DOD SW") {
+					crl = "http://crl.disa.mil/crl/DODSWCA_" + strings.SplitAfter(cert.Subject.CommonName, "-")[1] + ".crl"
+				} else {
+					continue
+				}
+				fingerprint := getSha256Fingerprint(&cert)
+				var crlSize int64 = 0
+				downloadInfo := downloadFromUrl(crl, 80)
+				crlSize = downloadInfo.Size
+				s := cert.Subject.CommonName + " " + cert.SignatureAlgorithm.String() + " Issuing CA: " + cert.Issuer.CommonName + " CRL Size: " + strconv.Itoa(int(crlSize)) + ": "
+				s += fmt.Sprintf("%x", fingerprint)
+				//hashes = append(hashes, s)
+				fmt.Println(s)
+				CRLDownloadInfo = append(CRLDownloadInfo, downloadInfo)
+			}
+		}
+	}
+	return CRLDownloadInfo
 }
