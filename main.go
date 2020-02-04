@@ -203,7 +203,15 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 	}
 }
 
-func loadCertificates() CertificateBundle {
+type DODCertTypesFilter struct {
+	DOD_EMAIL bool
+	DOD_ID bool
+	DOD_ID_SW bool
+	DOD_SW bool
+	DOD_ROOT bool
+}
+
+func loadCertificates(filter DODCertTypesFilter) CertificateBundle {
 	cert, err := os.Open("DoD_CAs.pem")
 	if err != nil {
 		fmt.Println(err)
@@ -223,7 +231,6 @@ func loadCertificates() CertificateBundle {
 		cert := strings.Split(s, "\n")
 		var tempString string
 		for _, c := range cert {
-			//determines if this certificate is a root certificate
 			if strings.HasPrefix(c, "subject") || strings.HasPrefix(c, "issuer") || c == "" {
 			} else {
 				tempString += c
@@ -236,6 +243,22 @@ func loadCertificates() CertificateBundle {
 			if (err != nil) {
 				panic("oh no")
 			}
+
+			//TODO: Rework this so it's easier to understand/follow/debug
+			//this is bad control flow :( and it makes me sad
+			//this filters our return certificate bundle to be only those types of CAs that we filtered on
+			if strings.HasPrefix(tempCert.Subject.CommonName, "DOD SW") && !filter.DOD_SW {
+				continue
+			} else if strings.HasPrefix(tempCert.Subject.CommonName, "DOD EMAIL") && !filter.DOD_EMAIL {
+				 continue
+			} else if strings.HasPrefix(tempCert.Subject.CommonName, "DOD ID SW") && !filter.DOD_ID_SW {
+				continue
+			} else if strings.HasPrefix(tempCert.Subject.CommonName, "DOD ID") && !filter.DOD_ID {
+				continue
+			} else if strings.HasPrefix(tempCert.Subject.CommonName, "DoD Root") && !filter.DOD_ROOT {
+				continue
+			}
+
 			//getting Sha256 fingerprint of the certificate
 			fingerprint := getSha256Fingerprint(tempCert)
 			//converting the fingerprint to a hex string
@@ -243,6 +266,7 @@ func loadCertificates() CertificateBundle {
 			bundle.Hash256 = append(bundle.Hash256, stringFingerprint)
 			bundle.CommonNames = append(bundle.CommonNames, tempCert.Subject.CommonName)
 			bundle.Certificates = append(bundle.Certificates, *tempCert)
+
 			certs = append(certs, *tempCert)
 		}
 		tempString = ""
@@ -321,14 +345,29 @@ func main() {
 
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
-	certs := loadCertificates()
+	certFilter := DODCertTypesFilter{
+		DOD_EMAIL: true,
+		DOD_ID:    true,
+		DOD_ID_SW: true,
+		DOD_SW:    true,
+		DOD_ROOT:  true,
+	}
+	certs := loadCertificates(certFilter)
 	plist := CreateSmartCardPlist(certs.Hash256, "Smartcard.plist")
+	WriteStringToDisk(plist, "Smartcard.plist")
 	fmt.Println(plist)
 }
 
 
 func downloadCRLs() []DownloadInfo {
-	bundle := loadCertificates()
+	certFilter := DODCertTypesFilter{
+		DOD_EMAIL: true,
+		DOD_ID:    true,
+		DOD_ID_SW: true,
+		DOD_SW:    true,
+		DOD_ROOT:  true,
+	}
+	bundle := loadCertificates(certFilter)
 	certs := bundle.Certificates
 	var CRLDownloadInfo []DownloadInfo
 	for _, cert := range certs {
@@ -368,13 +407,14 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 <plist version="1.0">
 <dict>
 	<key>TrustedAuthorities</key>
-	<array>`
+        <array>
+`
 
 	for _, k := range hashes {
-		base += "\n" + "<string>" + k + "</string>" + "\n"
+		base +=  "           <string>" + k + "</string>" + "\n"
 
 	}
-	base += `</array>\n`
+	base += `        </array>` + "\n"
 	base += `	<key>AttributeMapping</key>
 	<dict>
 		<key>fields</key>
@@ -390,4 +430,25 @@ func CreateSmartCardPlist(hashes []string, filename string) string {
 </plist>`
 
 	return base
+}
+
+func WriteStringToDisk(data string, filename string) bool {
+	f, err := os.Create(filename)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	l, err := f.WriteString(data)
+	if err != nil {
+		fmt.Println(err)
+		f.Close()
+		return false
+	}
+	fmt.Println(l, "bytes written successfully")
+	err = f.Close()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
 }
