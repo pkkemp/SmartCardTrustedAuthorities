@@ -183,15 +183,6 @@ v5HSOJTT9pUst2zJQraNypCNhdk=
 		panic("failed to parse root certificate")
 	}
 
-	//block, _ := pem.Decode(certificate.Raw)
-	//if block == nil {
-	//	panic("failed to parse certificate PEM")
-	//}
-	//cert, err := x509.ParseCertificate(block.Bytes)
-	//if err != nil {
-	//	panic("failed to parse certificate: " + err.Error())
-	//}
-
 	opts := x509.VerifyOptions{
 		Roots: roots,
 	}
