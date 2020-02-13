@@ -368,11 +368,11 @@ func main() {
 	const OCSPEndpoint = "ocsp.disa.mil"
 	//data := downloadCRLs()
 	//fmt.Print("Downloaded from: ", data)
-	//filter := createBloom(1000000)
-	//CRL := parseCRL("DODEMAILCA_41.crl")
+	filter := createBloom(1000000)
+	CRL := parseCRL("DODEMAILCA_41.crl")
 	//CRLS := loadCRLs(readCurrentDir())
 	//const numFCRLS = 100
-	//var filters []CRLBloomFilter
+	////var filters []CRLBloomFilter
 
 	//for i:=0; i < len(CRLS); i++ {
 	//	filters = append(filters,CRLBloomFilter{})
@@ -384,20 +384,17 @@ func main() {
 	//	}
 	//}
 
-	//for k := 0; k < len(CRL.TBSCertList.RevokedCertificates); k++ {
-	//	addItemToBloom(CRL.TBSCertList.RevokedCertificates[k].SerialNumber.Uint64(), filter)
-	//}
-	certs := loadCertificates()
-	plist := CreateSmartCardPlist(certs.Hash256, "Smartcard.plist")
-	fmt.Println(plist)
+	for k := 0; k < len(CRL.TBSCertList.RevokedCertificates); k++ {
+		addItemToBloom(CRL.TBSCertList.RevokedCertificates[k].SerialNumber.Uint64(), filter)
+	}
 
-	//
-	//fmt.Println(findItemBloom(1572835, filter))
-	//fmt.Println(findItemBloom(3145685, filter))
-	//fmt.Println(findItemBloom(3145686, filter))
-	//fmt.Println(findItemBloom(3145525, filter))
-	//fmt.Println(findItemBloom(3145526, filter))
-	//fmt.Println(findItemBloom(1572626, filter))
+	fmt.Println(findItemBloom(1572835, filter))
+	fmt.Println(findItemBloom(3145685, filter))
+	fmt.Println(findItemBloom(3145686, filter))
+	fmt.Println(findItemBloom(3145525, filter))
+	fmt.Println(findItemBloom(3145526, filter))
+	fmt.Println(findItemBloom(1572626, filter))
+
 
 	//loadCertificates()
 	//CRLDownloadInfo := downloadCRLs()
