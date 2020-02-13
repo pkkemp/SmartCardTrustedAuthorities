@@ -7,10 +7,8 @@ import (
 	"crypto/sha512"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/binary"
 	"encoding/pem"
 	"fmt"
-	"github.com/willf/bloom"
 	"html/template"
 	"io"
 	"log"
@@ -356,12 +354,6 @@ func crlHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-type CRLBloomFilter struct {
-	CA string
-	Filter bloom.BloomFilter
-}
-
-
 func main() {
 	//downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
@@ -409,22 +401,6 @@ func main() {
 	////fmt.Println("Downloaded from", CRLEndpoint, CRLDownloadInfo[0].RemoteAddr)
 }
 
-func createBloom(n uint) *bloom.BloomFilter {
-	filter := bloom.New(20*n, 5) // load of 20, 5 keys
-	return filter
-}
-
-func addItemToBloom(serial uint64, filter *bloom.BloomFilter) {
-	n1 := make([]byte,8)
-	binary.BigEndian.PutUint64(n1,serial)
-	filter.Add(n1)
-}
-
-func findItemBloom(serial uint64, filter *bloom.BloomFilter) bool {
-	n1 := make([]byte,8)
-	binary.BigEndian.PutUint64(n1,serial)
-	return filter.Test(n1)
-}
 
 func downloadCRLs() []DownloadInfo {
 	bundle := loadCertificates()
