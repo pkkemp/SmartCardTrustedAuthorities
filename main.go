@@ -366,41 +366,11 @@ func main() {
 	//downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
-	//data := downloadCRLs()
-	//fmt.Print("Downloaded from: ", data)
-	filter := createBloom(1000000)
-	CRL := parseCRL("DODEMAILCA_41.crl")
-	//CRLS := loadCRLs(readCurrentDir())
-	//const numFCRLS = 100
-	////var filters []CRLBloomFilter
-
-	//for i:=0; i < len(CRLS); i++ {
-	//	filters = append(filters,CRLBloomFilter{})
-	//	currentFilter := &filters[i].Filter
-	//	currentFilter = createBloom(1000000)
-	//	filters[i].CA = CRLS[i].TBSCertList.Issuer.String()
-	//	for j:= 0; j < len(CRL.TBSCertList.RevokedCertificates); j++  {
-	//		addItemToBloom(CRLS[i].TBSCertList.RevokedCertificates[j].SerialNumber.Uint64(), currentFilter)
-	//	}
-	//}
-
-	for k := 0; k < len(CRL.TBSCertList.RevokedCertificates); k++ {
-		addItemToBloom(CRL.TBSCertList.RevokedCertificates[k].SerialNumber.Uint64(), filter)
+	loadCertificates()
+	CRLDownloadInfo := downloadCRLs()
+	for _, CRL := range CRLDownloadInfo {
+		fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
 	}
-
-	fmt.Println(findItemBloom(1572835, filter))
-	fmt.Println(findItemBloom(3145685, filter))
-	fmt.Println(findItemBloom(3145686, filter))
-	fmt.Println(findItemBloom(3145525, filter))
-	fmt.Println(findItemBloom(3145526, filter))
-	fmt.Println(findItemBloom(1572626, filter))
-
-
-	//loadCertificates()
-	//CRLDownloadInfo := downloadCRLs()
-	//for _, CRL := range CRLDownloadInfo {
-	//	fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
-	//}
 	// Set up a /hello resource handler
 	// Set up a /hello resource handler
 	//http.HandleFunc("/hello", helloHandler)
