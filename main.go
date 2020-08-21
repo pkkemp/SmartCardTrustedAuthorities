@@ -361,9 +361,12 @@ func main() {
 	const OCSPEndpoint = "ocsp.disa.mil"
 	loadCertificates()
 	CRLDownloadInfo := downloadCRLs()
+	output := ""
 	for _, CRL := range CRLDownloadInfo {
 		fmt.Println(CRL.FileName, " has ",len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates), " revocations")
+		output += "[" + "'" + CRL.FileName + ", " + strconv.Itoa(len(parseCRL(CRL.FileName).TBSCertList.RevokedCertificates)) + "]," + "\n"
 	}
+	fmt.Println(output)
 	// Set up a /hello resource handler
 	// Set up a /hello resource handler
 	//http.HandleFunc("/hello", helloHandler)
