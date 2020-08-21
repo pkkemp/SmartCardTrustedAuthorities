@@ -294,6 +294,7 @@ func parseCRL(crlFile string) *pkix.CertificateList {
 	buffer := bufio.NewReader(cert)
 	_, err = buffer.Read(pembytes)
 	crl, err := x509.ParseDERCRL(pembytes)
+	cert.Close()
 	if (err != nil) {
 		panic(err)
 	}
