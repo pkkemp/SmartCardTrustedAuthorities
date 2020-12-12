@@ -363,7 +363,7 @@ type CRLBloomFilter struct {
 
 
 func main() {
-	//downloadCRLs()
+	downloadCRLs()
 	const CRLEndpoint = "crl.disa.mil"
 	const OCSPEndpoint = "ocsp.disa.mil"
 	//data := downloadCRLs()
